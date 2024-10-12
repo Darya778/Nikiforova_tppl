@@ -12,7 +12,6 @@
    pop rax
 %endmacro
 
-
 %macro print 2
    pushd
    mov rax, 1
@@ -22,7 +21,6 @@
    syscall
    popd
 %endmacro
-
 
 %macro dprint 0
    pushd
@@ -51,12 +49,12 @@
 
 
 section .text
-    global _start
+global _start
 
 _start:
     mov ecx, len_x
     xor eax, eax
-    mov ebx, 0
+    xor ebx, ebx
 
 sum_x_loop:
     add al, [x + ebx]
@@ -72,12 +70,21 @@ sum_y_loop:
     inc ebx
     loop sum_y_loop
 
-    mov byte [minus], '-'  ; Записываем знак минус
-    print minus, 1   ; Выводим минус
+    cmp al, dl
+    jg al_greater
 
+    mov byte [minus], '-'
+    print minus, 1
     sub dl, al
     mov [diff], dl
 
+    jmp calculate_mean
+
+al_greater:
+    sub al, dl
+    mov [diff], al
+
+calculate_mean:
     mov ecx, len_x
     xor ebx, ebx
     mov bl, len_x
@@ -91,7 +98,7 @@ sum_y_loop:
     print newline, nlen
 
     mov eax, 1
-    xor ebx, ebx
+    xor ebx, ebx 
     int 0x80
 
 section .data
@@ -105,7 +112,7 @@ section .data
     mean db 0
 
     result dq 0
-    newline db 0xA, 0xD
+    newline db 0xA, 0xD 
     nlen equ $ - newline
 
 section .bss
