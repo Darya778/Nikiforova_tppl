@@ -23,3 +23,6 @@ class TestPrefixToInfix:
 
     def test_complex_expression(self, prefixtoinfix):
         assert prefixtoinfix.convert("/ + 3 10 * + 2 3 - 3 5") == "((3 + 10) / ((2 + 3) * (3 - 5)))"
+
+    def test_insufficient_operators(self, prefixtoinfix):
+        assert prefixtoinfix.convert("") == "Incorrect number of operands or operators"
