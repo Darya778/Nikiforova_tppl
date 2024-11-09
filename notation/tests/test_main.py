@@ -1,5 +1,5 @@
 import pytest
-from prefix_to_infix import PrefixToInfix
+from main import PrefixToInfix
 
 
 @pytest.fixture(scope="function")
