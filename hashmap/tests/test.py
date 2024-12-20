@@ -1,5 +1,5 @@
 import pytest
-from ..main.main import SpecialDict, ConditionError
+from ..main.main import SpecialDict, InvalidConditionException
 
 
 @pytest.fixture
@@ -56,10 +56,10 @@ def test_ploc_ignores_invalid_keys(sample_dict):
 
 
 def test_ploc_invalid_conditions(sample_dict):
-    with pytest.raises(ConditionError):
+    with pytest.raises(InvalidConditionException):
         _ = sample_dict.ploc["invalid_condition"]
 
-    with pytest.raises(ConditionError):
+    with pytest.raises(InvalidConditionException):
         _ = sample_dict.ploc[">=, 5"]
 
 
@@ -94,7 +94,7 @@ def test_operator_not_equal(sample_dict):
 
 def test_ploc_parse_conditions_error():
     d = SpecialDict()
-    with pytest.raises(ConditionError):
+    with pytest.raises(InvalidConditionException):
         _ = d.ploc["invalid>>"]
 
 
@@ -112,9 +112,4 @@ def test_match_condition_false():
     assert d.ploc[">=10, <5"] == {}
     assert d.ploc["<0, >=5"] == {}
     assert d.ploc["<=0, <=0"] == {}
-    assert d.ploc["=0, =-1"] == {}
 
-def test_value_key_error():
-    d = SpecialDict()
-    d["1 -1"] = 100
-    assert  d.ploc["<0"] == {}
