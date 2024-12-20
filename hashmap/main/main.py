@@ -1,90 +1,73 @@
 import re
+from typing import Any, Dict, List, Tuple
 
 
-class ConditionError(Exception):
+class InvalidConditionException(Exception):
     pass
 
 
-class SpecialDict:
-    def __init__(self):
-        self._data = {}
-
-    def __setitem__(self, key, value):
-        self._data[key] = value
-
-    def __getitem__(self, key):
-        return self._data[key]
-
+class SpecialDict(dict):
     @property
     def iloc(self):
-        class IlocAccessor:
-            def __init__(self, parent):
+        class IlocHandler:
+            def __init__(self, parent: "SpecialDict"):
                 self.parent = parent
 
-            def __getitem__(self, index):
-                if not isinstance(index, int) or index < 0:
-                    raise IndexError("Index должен быть неотрицательным целым числом.")
-                sorted_keys = sorted(self.parent._data.keys(), key=str)
-                if index >= len(sorted_keys):
-                    raise IndexError("Индекс выходит за границы.")
-                return self.parent._data[sorted_keys[index]]
+            def __getitem__(self, index: int) -> Any:
+                sorted_keys = sorted(self.parent.keys())
+                if index < 0 or index >= len(sorted_keys):
+                    raise IndexError("Index out of range.")
+                return self.parent[sorted_keys[index]]
 
-        return IlocAccessor(self)
+        return IlocHandler(self)
 
     @property
     def ploc(self):
-        class PlocAccessor:
-            def __init__(self, parent):
+        class PlocHandler:
+            def __init__(self, parent: "SpecialDict"):
                 self.parent = parent
 
-            def __getitem__(self, condition):
-                parsed_conditions = self._parse_conditions(condition)
-                filtered = {}
-                for key, value in self.parent._data.items():
-                    numeric_key = self._parse_key(key)
-                    if numeric_key and len(numeric_key) == len(parsed_conditions):
-                        if self._evaluate_conditions(numeric_key, parsed_conditions):
-                            filtered[key] = value
-                return filtered
+            def __getitem__(self, condition: str) -> Dict[str, Any]:
+                conditions = self._parse_conditions(condition)
+                result = {
+                    key: value
+                    for key, value in self.parent.items()
+                    if (key_values := self._extract_numeric_values(key))
+                    and self._validate_conditions(key_values, conditions)
+                }
+                return result
 
-            @staticmethod
-            def _parse_conditions(condition):
-                condition = re.sub(r"[^\d<>=., ]", "", condition)
-                conditions = re.split(r",\s*", condition)
-                parsed = []
-                for cond in conditions:
-                    match = re.fullmatch(r"([<>]=?|=|<>)(-?\d+(?:\.\d+)?)", cond)
+            def _extract_numeric_values(self, key: str) -> List[float]:
+                if re.search(r'[a-zA-Z]', key):
+                    return []
+                clean_key = re.sub(r'[^\d.,-]', '', key)
+                return [float(num) for num in clean_key.split(',') if num]
+
+            def _parse_conditions(self, condition: str) -> List[Tuple[str, float]]:
+                parsed_conditions = []
+                for cond in condition.replace(" ", "").split(","):
+                    match = re.match(r"([<>]=?|==|<>)(-?\d+(\.\d+)?)", cond)
                     if not match:
-                        raise ConditionError(f"Неверное условие: {cond}")
-                    operator, number = match.groups()
-                    parsed.append((operator, float(number)))
-                return parsed
+                        raise InvalidConditionException(f"Invalid condition: {cond}")
+                    parsed_conditions.append((match.group(1), float(match.group(2))))
+                return parsed_conditions
 
-            @staticmethod
-            def _parse_key(key):
-                if not re.fullmatch(r"[0-9.,\s-]+", key.replace("(", "").replace(")", "")):
-                    return None
-                try:
-                    key = re.sub(r"[^\d.,-]", "", key)
-                    return [float(x) for x in key.split(",")]
-                except ValueError:
-                    return None
+            def _validate_conditions(self, key_values: List[float], conditions: List[Tuple[str, float]]) -> bool:
+                if len(key_values) != len(conditions):
+                    return False
 
-            @staticmethod
-            def _evaluate_conditions(key, conditions):
-                for value, (operator, number) in zip(key, conditions):
-                    if operator == "=" and value != number:
-                        return False
-                    elif operator == "<>" and value == number:
-                        return False
-                    elif operator == "<" and value >= number:
-                        return False
-                    elif operator == "<=" and value > number:
-                        return False
-                    elif operator == ">" and value <= number:
-                        return False
-                    elif operator == ">=" and value < number:
-                        return False
-                return True
+                operator_funcs = {
+                    ">": lambda x, y: x > y,
+                    ">=": lambda x, y: x >= y,
+                    "<": lambda x, y: x < y,
+                    "<=": lambda x, y: x <= y,
+                    "==": lambda x, y: x == y,
+                    "<>": lambda x, y: x != y,
+                }
 
-        return PlocAccessor(self)
+                return all(
+                    operator_funcs[op](key_val, limit)
+                    for key_val, (op, limit) in zip(key_values, conditions)
+                )
+
+        return PlocHandler(self)
